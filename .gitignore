@@ -1,0 +1,16 @@
+
+# Go
+bin/
+build/
+*.exe
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+
+# Generated
+gen/
+api/v1/*.swagger.json
+api/v1/*.openapiv2.json
