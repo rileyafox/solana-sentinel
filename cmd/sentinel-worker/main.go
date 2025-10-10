@@ -9,9 +9,9 @@ import (
 	"os"
 	"time"
 
-	"solana-sentinel/internal/backfill"
-	"solana-sentinel/internal/rpc"
-	"solana-sentinel/internal/store"
+	"github.com/rileyafox/solana-sentinel/internal/backfill"
+	"github.com/rileyafox/solana-sentinel/internal/rpc"
+	"github.com/rileyafox/solana-sentinel/internal/store"
 )
 
 func main() {

@@ -6,10 +6,10 @@ import (
 	"net"
 	"net/http"
 
-	apiv1 "solana-sentinel/api/v1"
-	"solana-sentinel/internal/gateway"
-	"solana-sentinel/internal/observability"
-	"solana-sentinel/internal/service"
+	apiv1 "github.com/rileyafox/solana-sentinel/api/v1"
+	"github.com/rileyafox/solana-sentinel/internal/gateway"
+	"github.com/rileyafox/solana-sentinel/internal/observability"
+	"github.com/rileyafox/solana-sentinel/internal/service"
 
 	"google.golang.org/grpc"
 	health "google.golang.org/grpc/health"

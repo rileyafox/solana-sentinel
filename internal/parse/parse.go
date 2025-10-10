@@ -8,7 +8,7 @@ import (
 	// "strconv"
 	"time"
 
-	"solana-sentinel/internal/store"
+	"github.com/rileyafox/solana-sentinel/internal/store"
 )
 
 // FromGetTransaction normalizes a getTransaction JSON into TxRow + EventRows (basic transfer + program_log).

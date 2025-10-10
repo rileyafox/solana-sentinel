@@ -1,0 +1,35 @@
+syntax = "proto3";
+package txrelay.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/rileyafox/solana-sentinel/api/gen/txrelay/v1;txrelayv1";
+
+message HealthRequest {}
+message HealthResponse { string status = 1; string version = 2; }
+
+message StreamFilter {
+  repeated string accounts = 1;
+  repeated string programs = 2;
+  string kind = 3;
+}
+message StreamRequest { StreamFilter filter = 1; }
+
+message Event {
+  string id = 1;
+  string kind = 2;
+  string slot = 3;
+  string account = 4;
+  string program = 5;
+  bytes  payload = 6;
+  int64  ts_ms = 7;
+}
+
+service Sentinel {
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (google.api.http) = { get: "/v1/health" };
+  }
+  rpc Stream(StreamRequest) returns (stream Event) {
+    option (google.api.http) = { post: "/v1/stream" body: "*" };
+  }
+}

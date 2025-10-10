@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	apiv1 "solana-sentinel/api/v1"
+	apiv1 "github.com/rileyafox/solana-sentinel/api/v1"
 	grpcgw "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

@@ -4,7 +4,7 @@ package service
 import (
 	"context"
 
-	apiv1 "solana-sentinel/api/v1"
+	apiv1 "github.com/rileyafox/solana-sentinel/api/v1"
 )
 
 type SentinelService struct {

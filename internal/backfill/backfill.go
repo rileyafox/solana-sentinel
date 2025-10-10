@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
-	"solana-sentinel/internal/parse"
-	"solana-sentinel/internal/rpc"
-	"solana-sentinel/internal/store"
+	"github.com/rileyafox/solana-sentinel/internal/parse"
+	"github.com/rileyafox/solana-sentinel/internal/rpc"
+	"github.com/rileyafox/solana-sentinel/internal/store"
 )
 
 type Backfill struct {

@@ -10,7 +10,6 @@ services:
       POSTGRES_DB: sentinel
     ports:
       - "5433:5432"
-    # IMPORTANT: this compose file lives in ./docker, so we mount ../migrations
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ../migrations:/docker-entrypoint-initdb.d:ro
@@ -26,6 +25,30 @@ services:
     ports:
       - "6379:6379"
 
+  api:
+    container_name: solana-sentinel-api
+    build:
+      context: ..                # repo root
+      dockerfile: Dockerfile  
+    environment:
+      GRPC_ADDR: ":8081"
+      REST_ADDR: ":8080"
+      METRICS_ADDR: ":9102"
+      REDIS_URL: "redis://redis:6379"
+      # Add DB envs if your API needs Postgres now or later:
+      # PGHOST: db
+      # PGPORT: "5432"
+      # PGUSER: postgres
+      # PGPASSWORD: postgres
+      # PGDATABASE: sentinel
+    depends_on:
+      - redis
+      - db
+    ports:
+      - "8080:8080"   # REST gateway
+      - "8081:8081"   # gRPC
+      - "9102:9102"   # Prometheus metrics
+
   prometheus:
     image: prom/prometheus
     container_name: solana-sentinel-prom
@@ -34,7 +57,6 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-
 
 volumes:
   pgdata: {}
