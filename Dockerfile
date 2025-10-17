@@ -26,7 +26,7 @@ COPY . .
 COPY --from=proto /src/api/gen ./api/gen
 
 # Build the API binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o /out/api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o /out/api ./cmd/sentinel-api
 
 # ---- Runtime stage ----
 FROM gcr.io/distroless/base-debian12

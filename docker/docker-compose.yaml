@@ -34,13 +34,8 @@ services:
       GRPC_ADDR: ":8081"
       REST_ADDR: ":8080"
       METRICS_ADDR: ":9102"
-      REDIS_URL: "redis://redis:6379"
-      # Add DB envs if your API needs Postgres now or later:
-      # PGHOST: db
-      # PGPORT: "5432"
-      # PGUSER: postgres
-      # PGPASSWORD: postgres
-      # PGDATABASE: sentinel
+      REDIS_URL: "redis://redis:6379/0"  
+      DATABASE_URL: "postgres://postgres:postgres@db:5432/sentinel?sslmode=disable"
     depends_on:
       - redis
       - db
@@ -57,6 +52,28 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+  
+  sol-ingester:
+    container_name: solana-sentinel-ingester
+    build:
+      context: ..                        
+      dockerfile: internal/service/sol-ingester/Dockerfile
+    environment:
+      SOLANA_WS_URL: wss://api.mainnet-beta.solana.com
+      SOLANA_HTTP_URL: https://api.mainnet-beta.solana.com
+      SOLANA_COMMITMENT: confirmed
+      SUBSCRIBE_PROGRAMS: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA,JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+
+      REDIS_URL: redis://redis:6379/0
+      REDIS_DEDUPE_TTL_SEC: "86400"
+      PROM_ADDR: ":9102"
+    depends_on:
+      - redis
+    ports:
+      - "9103:9102" 
+    restart: unless-stopped
+
+
 
 volumes:
   pgdata: {}

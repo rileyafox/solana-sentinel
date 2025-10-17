@@ -42,7 +42,7 @@ func main() {
 	switch *mode {
 	case "backfill":
 		if *addr == "" { log.Fatal("-addr required") }
-		st, err := store.New(*dsn)
+		st, err := store.New(context.Background(), *dsn)
 		if err != nil { log.Fatalf("store: %v", err) }
 		defer st.Close()
 		httpc := rpc.NewHTTPClient(*httpURL)

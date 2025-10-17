@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	apiv1 "github.com/rileyafox/solana-sentinel/api/v1"
 	grpcgw "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	tx "github.com/rileyafox/solana-sentinel/api/gen/txrelay/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -20,8 +20,9 @@ func NewHTTPMux(ctx context.Context, target string) http.Handler {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
-	if err := apiv1.RegisterSentinelServiceHandlerFromEndpoint(context.Background(), gwmux, target, dialOpts); err != nil {
-		// If registration fails, fail fast rather than serving a half-broken gateway
+	if err := tx.RegisterSentinelHandlerFromEndpoint(
+		context.Background(), gwmux, target, dialOpts,
+	); err != nil {
 		log.Fatalf("gateway register error: %v (is gRPC running at %s?)", err, target)
 	}
 

@@ -1,203 +1,195 @@
-# Solana Sentinel — Real‑Time Solana Indexer (Go + gRPC + Postgres)
+Solana Sentinel is a production-grade backend that ingests live Solana mainnet data via WebSocket and JSON-RPC, buffers it in Redis Streams, persists normalized events to Postgres, and exposes both gRPC and REST APIs (via grpc-gateway) for real-time querying and monitoring.
 
-**Solana Sentinel** is a production‑style backend that ingests **live Solana data** via WebSocket & JSON‑RPC, normalizes it into **Postgres**, and exposes **gRPC** (with REST via grpc‑gateway) for querying and streaming events in real time. It’s built to showcase backend engineering skills for roles like **Coinbase**.
+Built to demonstrate backend, system design, and observability engineering — fully containerized with Docker Compose.
 
-> This repository is delivered as a scaffold you can incrementally extend. The roadmap is split into phases, with clear demo steps and “definition of done.”
+Highlights
 
----
+Go 1.23+ modular architecture (cmd/, internal/)
 
-## Highlights
-- **Go 1.22+** service with clean, modular layout (`cmd/`, `internal/`).
-- **Protobuf-first contracts** (`buf`) → gRPC stubs + REST gateway.
-- **Solana clients** (HTTP JSON‑RPC + WebSocket) with retry/backoff stubs.
-- **Postgres schema** (migrations) for transactions, events, accounts.
-- **Docker Compose** for local dev (API, worker, Postgres, Redis, Prometheus).
-- **Observability** stubs (Prom metrics, OpenTelemetry hooks).
-- **Security & reliability** scaffolding (validation, rate‑limit entrypoints).
+Solana mainnet ingestion via WebSocket + retry/reconnect logic
 
----
+Postgres storage with idempotent upserts (tx_events table)
 
----
+Redis Streams for buffering and deduplication between services
 
-## Tech Stack
-- **Language:** Go 1.22+
-- **API:** gRPC + grpc‑gateway (REST) + OpenAPI
-- **Schema/Migrations:** Postgres (SQL), `migrations/`
-- **Build/Codegen:** `buf` for protobuf
-- **Runtime:** Docker Compose for local dev
-- **Cache/Dedupe (future):** Redis
-- **Obs (future):** Prometheus, OpenTelemetry
+gRPC + REST API powered by buf + grpc-gateway
 
----
+Prometheus metrics for ingestion, storage, and API throughput
 
-## Repository Layout
-```
+System design patterns for decoupling, resilience, and observability
+
+Architecture Overview
+             ┌──────────────────────────┐
+             │   Solana Mainnet WS/API  │
+             └───────────┬──────────────┘
+                         │
+                 (ingest via WebSocket)
+                         ▼
+               ┌──────────────────┐
+               │ sol-ingester     │
+               │ (cmd/sol-ingester) │
+               └──────────┬────────┘
+                         │
+                  Publishes logs
+                         ▼
+               ┌──────────────────┐
+               │ Redis Stream     │
+               │ key: sol:logs    │
+               └──────────┬────────┘
+                         │
+                Worker consumes + upserts
+                         ▼
+               ┌──────────────────┐
+               │ sentinel-api     │
+               │ (cmd/sentinel-api) │
+               └──────────┬────────┘
+                         │
+                  Inserts into
+                         ▼
+               ┌──────────────────┐
+               │ PostgreSQL       │
+               │ table: tx_events │
+               └──────────┬────────┘
+                         │
+                         ▼
+             ┌────────────────────────────┐
+             │ REST /v1/events/latest     │
+             │ gRPC, Health, Metrics (/metrics) │
+             └────────────────────────────┘
+
+Tech Stack
+Language	Go 1.23
+API	gRPC + REST via grpc-gateway
+Database	PostgreSQL 16
+Cache / Buffer	Redis Streams
+Metrics	Prometheus
+Build / Codegen	buf for Protobufs
+Runtime	Docker Compose
+
+
+Repository Layout
 solana-sentinel/
-  api/
-    v1/
-      sentinel.proto          # Contracts (gRPC + REST via gateway)
-  buf.gen.yaml
-  buf.yaml
-  cmd/
-    sentinel-api/
-      main.go                 # gRPC/REST server entrypoint
-    sentinel-worker/
-      main.go                 # Backfill / jobs entrypoint
-  internal/
-    backfill/                 # Historical ingestion (stubs)
-      backfill.go
-    config/                   # Configuration loader (stubs)
-      config.go
-    gateway/                  # grpc-gateway setup (stubs)
-      gateway.go
-    ingest/                   # Live WS ingestion (stubs)
-      ingest.go
-    observability/            # Prom/OTel hooks (stubs)
-      observability.go
-    parse/                    # Normalizers/parsers (stubs)
-      parse.go
-    rpc/                      # Solana RPC clients (stubs)
-      http.go
-      ws.go
-    service/                  # Implements the gRPC service
-      sentinel.go
-    store/                    # DB access (stubs)
-      store.go
-  migrations/
-    001_init.sql              # Base schema
-  docker/
-    docker-compose.yaml
-  .github/
-    workflows/
-      ci.yml                  # Lint/build/codegen CI
-  .gitignore
-  LICENSE
-  Makefile
-  README.md
-  go.mod
-```
+├── api/                  # gRPC + REST contracts
+│   ├── proto/            # .proto definitions
+│   └── gen/              # buf-generated stubs
+│
+├── cmd/                  # Service entrypoints
+│   ├── sentinel-api/     # API + worker + metrics
+│   │   └── main.go
+│   └── sol-ingester/     # Solana WS log ingester
+│       └── main.go
+│
+├── internal/             # Core logic
+│   ├── api/              # REST/gRPC handlers (v1/events/latest)
+│   ├── gateway/          # grpc-gateway setup
+│   ├── observability/    # Prometheus + OTel stubs
+│   ├── rpc/              # Solana JSON-RPC & WS clients
+│   ├── stream/           # Redis stream helpers
+│   ├── store/            # Postgres schema & queries
+│   └── worker/           # Redis→Postgres consumer
+│
+├── docker/               # Deployment configs
+│   ├── docker-compose.yaml
+│   └── prometheus.yml
+│
+├── migrations/           # SQL schema
+│   └── 001_init.sql
+│
+├── Makefile              # Local tasks (build, migrate)
+└── README.md
 
----
+Configuration
 
-## Quickstart
+Environment variables (loaded from Docker Compose or .env):
 
-### 1) Prerequisites
-- Go 1.22+
-- Docker + Docker Compose
-- `buf` (protobuf tool): <https://docs.buf.build/installation>
+Variable	Default	Description
+SOLANA_WS_URL	wss://api.mainnet-beta.solana.com	WebSocket RPC endpoint
+SOLANA_COMMITMENT	confirmed	Commitment level for stream data
+SUBSCRIBE_PROGRAMS	TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA	Program IDs to monitor
+REDIS_URL	redis://redis:6379/0	Redis connection
+DATABASE_URL	postgres://postgres:postgres@db:5432/sentinel?sslmode=disable	Postgres DSN
+GRPC_ADDR	:8081	gRPC bind address
+REST_ADDR	:8080	REST gateway address
+METRICS_ADDR	:9102	Prometheus metrics address
 
-### 2) Clone & Generate
-```bash
-buf mod update
-buf generate
-```
-
-### 3) Start the stack
-```bash
+Quickstart (Mainnet)
+1) Build & Run
 docker compose -f docker/docker-compose.yaml up -d --build
-make migrate
-```
 
-### 4) Run services
-```bash
-# In one shell
-go run ./cmd/sentinel-api
+2) Check services
+docker compose ps
 
-# In another shell
-go run ./cmd/sentinel-worker --help
-```
+3️) Verify ingestion
+# Redis stream
+docker exec -it solana-sentinel-redis redis-cli XLEN sol:logs
+# Postgres rows
+docker exec -it solana-sentinel-db psql -U postgres -d sentinel \
+  -c "SELECT count(*) FROM tx_events;"
 
-> The API server exposes gRPC on `:8080` and REST on `:8081` (grpc‑gateway). Health endpoint: `http://localhost:8081/health` (stub).
+4️) Call API
+curl http://localhost:8080/v1/health
+curl "http://localhost:8080/v1/events/latest?n=5"
 
----
 
-##  Configuration
-Environment variables (with sensible defaults) are loaded by `internal/config`:
+You’ll see recent Solana transactions with decoded logs, slots, and timestamps.
 
-| Variable | Default | Description |
-|---|---|---|
-| `SOLANA_HTTP_URL` | `https://api.devnet.solana.com` | Solana JSON‑RPC HTTP endpoint |
-| `SOLANA_WS_URL`   | `wss://api.devnet.solana.com`    | Solana WebSocket endpoint |
-| `DATABASE_URL`    | `postgres://postgres:postgres@localhost:5433/sentinel?sslmode=disable` | Postgres DSN |
-| `REDIS_ADDR`      | `localhost:6379`                 | Redis (future dedupe/cache) |
-| `LOG_LEVEL`       | `info`                           | `debug`, `info`, `warn`, `error` |
+Testing & Stress Scenarios
+A) HTTP Load Testing (PowerShell)
+1..500 | % { Invoke-WebRequest "http://localhost:8080/v1/events/latest?n=100" | Out-Null }
 
-Set via `.env` or your shell. Docker Compose supplies local values.
+B) Dockerized Load Generator (Unix)
+docker run --rm --network solana-sentinel_docker_default \
+  rakyll/hey -z 60s -c 100 \
+  http://solana-sentinel-api:8080/v1/events/latest?n=100
 
----
 
-## 🗃 Database Schema (initial)
-See `migrations/001_init.sql` for details. Core tables:
+Expected:
 
-- **transactions**: signature (PK), slot, block_time, err (JSONB), fee, raw (JSONB)
-- **events**: id (PK), kind, signature (FK), slot, account, program, amount, mint, raw (JSONB), occurred_at
-- **accounts**: pubkey (PK), owner, slot, lamports, executable, rent_epoch, updated_at
+p95 latency < 300 ms
 
-> Keep `raw` JSON to enable re-parsing without re-fetching RPC. Add indexes as usage patterns emerge.
+No 5xx errors
 
-### Apply migrations
-```bash
-make migrate
-```
+count stable across runs
 
----
+C) Monitor Ingestion Flow
 
-## 🔌 Protobuf & gRPC
-The initial contract exposes two methods (scaffold only):
-- `GetTransactions` — list recent transactions for an account/program.
-- `StreamEvents` — server streaming of normalized events.
+Check Redis → Postgres pipeline health:
 
-Generate stubs:
-```bash
-buf generate
-```
+# Redis backlog
+docker exec -it solana-sentinel-redis redis-cli XLEN sol:logs
 
-OpenAPI is configured in `buf.gen.yaml` (generated under `api/v1/`).
+# Recent Postgres inserts
+docker exec -it solana-sentinel-db psql -U postgres -d sentinel \
+  -c "SELECT date_trunc('second', created_at), count(*) FROM tx_events GROUP BY 1 ORDER BY 1 DESC LIMIT 10;"
 
----
 
-## Testing (starter)
-- Unit tests should live under each package with `_test.go` suffix.
-- Recommended tools: `go test ./...`, `golangci-lint` (CI already configured).
+Rows steadily increasing = worker is keeping up
+Redis XLEN growing unbounded = worker lagging or DB bottleneck
 
-CI runs:
-- `buf lint`
-- `go vet`
-- `go build` for both commands
-- (Optionally) `golangci-lint run`
+D) Prometheus Metrics
+Component	Endpoint	Key Metrics
+API + Worker	http://localhost:9102/metrics	sentinel_events_emitted_total, sentinel_pg_errors_total, latency histograms
+Ingester	http://localhost:9103/metrics	sentinel_ingested_events_total, sentinel_ws_reconnects_total, sentinel_redis_publish_total
 
----
+Use the bundled Prometheus (http://localhost:9090) to visualize metrics and alert thresholds.
 
-## Observability
-- `/metrics` (Prometheus) — stubbed for now.
-- OpenTelemetry hooks (tracing/logs) wired in `internal/observability` as no‑ops; upgrade in Phase 8.
+E) Scale & Fault Tolerance
 
----
+Spin up multiple ingesters:
 
-## Security Notes
-- Validate user input (pubkeys, program IDs).
-- Add rate limiting to REST endpoints before exposing publicly.
-- Consider API keys for REST (simple HMAC header) in Phase 8.
+docker compose up -d --scale sol-ingester=3
 
----
 
-## Roadmap (Phases)
-1. **Repo & Contracts** — scaffold (this commit).
-2. **Solana RPC Client** — HTTP+WS with retry/backoff and context cancellation.
-3. **Storage** — migrations + store layer with idempotent upserts.
-4. **Historical Backfill** — `getSignaturesForAddress` → `getTransaction` normalization.
-5. **gRPC/REST API** — query + server streaming.
-6. **Live Ingestor** — WS logs/accounts + dedupe + fanout.
-7. **Program Decoders** — system transfers, SPL tokens, NFTs, Jupiter swaps.
-8. **Analytics & Views** — materialized views + endpoints + dashboards.
-9. **Reliability & Security** — OTel, rate limiting, API keys, load tests.
-10. **Scale** — Kafka/NATS, partitioned tables, K8s/Helm.
+Restart Redis or Postgres to confirm resilience:
 
-Each phase should add: code, tests, migrations, **README section** with demo commands and screenshots/GIFs.
+docker restart solana-sentinel-redis
+docker restart solana-sentinel-db
 
----
 
-> Designed a production‑style Go backend that ingests live Solana data via WebSocket & JSON‑RPC, normalizes transactions/events into Postgres, and exposes gRPC/REST for real‑time queries and streaming. Built protobuf‑first contracts, containerized dev stack, and observability hooks. Roadmapped program‑aware decoders and analytics.
+Next Steps (Future Work)
 
----
+Add structured program decoders (e.g., SPL Token, Jupiter swaps)
 
+Implement API filtering (program, slot range, amount)
+
+Add Grafana dashboard and Prometheus alerts
